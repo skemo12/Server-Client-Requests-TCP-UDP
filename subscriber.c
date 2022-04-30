@@ -19,6 +19,7 @@ void usage(char *file)
 
 int main(int argc, char *argv[])
 {
+	setvbuf(stdout, NULL, _IONBF, BUFSIZ);
 	int sockfd, n, ret;
 	struct sockaddr_in serv_addr;
 	char buffer[BUFLEN];
@@ -45,7 +46,6 @@ int main(int argc, char *argv[])
 	DIE(result < 0, "TCP NODELAY");
 	FD_SET(STDIN_FILENO, &read_fds);
 	FD_SET(sockfd, &read_fds);
-	printf("%s\n", argv[2]);
 
 	serv_addr.sin_family = AF_INET;
 	serv_addr.sin_port = htons(atoi(argv[3]));
@@ -54,7 +54,8 @@ int main(int argc, char *argv[])
 
 	ret = connect(sockfd, (struct sockaddr*) &serv_addr, sizeof(serv_addr));
 	DIE(ret < 0, "connect");
-
+	n = send(sockfd, argv[1], strlen(argv[1]), MSG_NOSIGNAL);
+	DIE(n < 0, "send");
 	fdmax = sockfd;
 	while (1) {
   		// se citeste de la stdin

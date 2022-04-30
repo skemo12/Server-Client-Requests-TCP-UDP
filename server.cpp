@@ -49,6 +49,7 @@ int max(int x, int y)
 }
 int main(int argc, char *argv[])
 {
+	setvbuf(stdout, NULL, _IONBF, BUFSIZ);
 	int sockTCP, sockUDP, newSockTCP, newSockUDP, portno;
 	char buffer[BUFLEN];
 	struct sockaddr_in serv_addr, cli_addr;
@@ -112,6 +113,7 @@ int main(int argc, char *argv[])
 	fdmax = max(sockUDP, sockTCP);
 	fdmax = max(fdmax, STDIN_FILENO);
 	unordered_map<string, int> id_sock;
+	unordered_map<int, string> sock_id;
 	unordered_map<string, vector<Topics> > topics_socks;
 	while (1) {
 		tmp_fds = sel_sock; 
@@ -123,7 +125,7 @@ int main(int argc, char *argv[])
 			vector<Topics>::iterator x;
 			for (x = it->second.begin(); x != it->second.end(); x++)
 			{
-				printf("%s\n", x->topic.c_str());
+				// printf("%s\n", x->topic.c_str());
 			}
 			
 		}
@@ -136,7 +138,7 @@ int main(int argc, char *argv[])
 				unordered_map<string, int>:: iterator itr;
 				for (itr = id_sock.begin(); itr != id_sock.end(); itr++)
 				{
-					printf("closing socket %d\n", itr->second);
+					// printf("closing socket %d\n", itr->second);
 					close(itr->second);
 				}
 				
@@ -158,21 +160,32 @@ int main(int argc, char *argv[])
 								(char *) &flag,  /* the cast is historical cruft */
 								sizeof(int));    /* length of option value */
 			DIE(result < 0, "TCP NODELAY");
-			id_sock[std::to_string(newSockTCP)] = newSockTCP;
+			memset(buffer, 0, sizeof(buffer));
+			n = recvfrom(newSockTCP, buffer, sizeof(buffer) - 1, 0, NULL, NULL);
+			if (id_sock.find(buffer) != id_sock.end())
+			{
+				printf("Client %s already connected\n", buffer);
+				FD_CLR(sockTCP, &tmp_fds);
+				close(newSockTCP);
+				continue;
+			}
+			
+			id_sock[buffer] = newSockTCP;
+			sock_id[newSockTCP] = buffer;
 			// se adauga noul socket intors de accept() la multimea descriptorilor de citire
 			FD_SET(newSockTCP, &sel_sock);
 			if (newSockTCP > fdmax) { 
 				fdmax = newSockTCP;
 			}
-			printf("accepted\n");
+			// printf("accepted\n");
 			char id[10];
 			strncpy(id, buffer, 10);
-			printf("New client %d connected from %s:%d\n", newSockTCP,
+			printf("New client %s connected from %s:%d\n", buffer,
 					inet_ntoa(cli_addr.sin_addr), ntohs(cli_addr.sin_port));
 			FD_CLR(sockTCP, &tmp_fds);
 		}
 		if (FD_ISSET(sockUDP, &tmp_fds)) {
-			printf("UDP\n");
+			// printf("UDP\n");
 			// a venit o cerere de conexiune pe socketul UDP,
 			// pe care serverul o accepta
 			clilen = sizeof(cli_addr);
@@ -180,7 +193,7 @@ int main(int argc, char *argv[])
 			n = recvfrom(sockUDP, buffer, sizeof(buffer) - 1, 0, NULL, NULL);
 			DIE(n <= 0, "recvfrom");
 			buffer[n] = '\0';
-			printf("Client udp: %s\n", buffer); 
+			// printf("Client udp: %s\n", buffer); 
 			FD_CLR(sockUDP, &tmp_fds);
 		}  
 		for (i = 0; i <= fdmax + 1; i++) {
@@ -193,8 +206,7 @@ int main(int argc, char *argv[])
 
 				if (n == 0) {
 					// conexiunea s-a inchis
-					printf("Client %d disconnected\n", i);
-					close(i);
+					printf("Client %s disconnected\n", sock_id[i].c_str());
 					
 					// se scoate din multimea de citire socketul inchis 
 					FD_CLR(i, &sel_sock);
@@ -202,29 +214,30 @@ int main(int argc, char *argv[])
 				} else {
 					
 					
-					printf ("S-a primit de la clientul de pe socketul %d mesajul: %s\n", i, buffer);
+					// printf ("S-a primit de la clientul de pe socketul %d mesajul: %s\n", i, buffer);
 					string str(buffer);
 					istringstream message(str);
 					string word;
+					string client = sock_id[i];
 					if (message >> word)
 					{
 						/* take first word, subscribe/ unsccribe */
-						printf("right message\n");
+						// printf("right message\n");
 						// string command = message.substr(0, message.find(" "));
-						printf("word %s\n", word.c_str());
+						// printf("word %s\n", word.c_str());
 						if (word.compare("subscribe") == 0)
 						{
 							if(message >> word) {
 								string topicToSubscribeTo = word;
 								if(message >> word) {
-									printf("word topic %s\n", topicToSubscribeTo.c_str());
+									// printf("word topic %s\n", topicToSubscribeTo.c_str());
 
-									printf("word flag %s\n", word.c_str());
+									// printf("word flag %s\n", word.c_str());
 									Topics topic;
 									topic.sf = stoi(word);
 									topic.topic = topicToSubscribeTo;
-									topics_socks[std::to_string(i)].push_back(topic);
-									printf("verif %s\n", topics_socks[std::to_string(i)][0].topic.c_str());
+									topics_socks[client].push_back(topic);
+									// printf("verif %s\n", topics_socks[std::to_string(i)][0].topic.c_str());
 								}
 							}
 						}
@@ -232,7 +245,7 @@ int main(int argc, char *argv[])
 						if (word.compare("unsubscribe") == 0)
 						{
 							if(message >> word) {
-								printf("word topic %s\n", word.c_str());
+								// printf("word topic %s\n", word.c_str());
 								vector<Topics>::iterator x;
 								for (x = topics_socks[std::to_string(i)].begin(); x != topics_socks[std::to_string(i)].end(); x++)
 								{
@@ -242,7 +255,7 @@ int main(int argc, char *argv[])
 									}
 									
 								}
-								topics_socks[to_string(i)].erase(x);
+								topics_socks[client].erase(x);
 							}
 						}
 						

@@ -32,7 +32,7 @@ run_server: server
 
 # Ruleaza clientul
 run_subscriber: subscriber
-	./subscriber 1 ${IP_SERVER} ${PORT}
+	./subscriber C1 ${IP_SERVER} ${PORT}
 
 run_udp:
 	python3 pcom_hw2_udp_client/udp_client.py --mode manual --source-address ${IP_SERVER} --source-port ${PORT}
