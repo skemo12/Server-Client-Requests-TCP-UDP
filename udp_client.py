@@ -67,6 +67,7 @@ def setup_socket(parsed_args):
 
 def send_message(sock, message, parsed_args):
     to_send = base64.standard_b64decode(message['payload_base64'])
+    print(to_send)
     sent = sock.sendto(to_send, (str(parsed_args.server_ip), parsed_args.server_port))
     print('Sent ({}/{} bytes) << {} >>'.format(sent, len(to_send), message['description']))
     time.sleep(parsed_args.delay / 1000)
@@ -93,6 +94,7 @@ def run_manual(sock, parsed_args):
         choice = int(choice)
         if (choice >= 0) and (choice < len(parsed_args.input_file)):
             message = parsed_args.input_file[choice]
+            print(message)
             send_message(sock, message, parsed_args)
         else:
             print('Maybe try a valid option.')

@@ -10,19 +10,13 @@ PORT = 3333
 # Adresa IP a serverului (de completat)
 IP_SERVER = 127.0.0.1
 
-all: server subscriber udpserver udpclient
+all: server subscriber
 
 # Compileaza server.c
 server: server.cpp
 
 # Compileaza client.c
-subscriber: subscriber.c
-
-# Compileaza UDPClient.c
-udpclient: UDPClient.c 
-
-# Compileaza UDPServer.c
-udpserver: UDPServer.c
+subscriber: subscriber.cpp
 
 .PHONY: clean run_server run_subscriber
 

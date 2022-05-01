@@ -12,7 +12,7 @@ from os import path
 from time import sleep
 
 # default port for the  server
-port = "2222"
+port = "12346"
 
 # default IP for the server
 ip = "127.0.0.1"
@@ -669,6 +669,9 @@ def h2_test():
 
           # subscribe C2 to a single SF topic and check
           run_test_c2_subscribe_sf(c2, topics)
+
+          # subscribe C1 to all topics and verify
+          run_test_c1_subscribe_all(server, c1, topics)
 
           # generate a message on the non-SF topic and check
           run_test_data_no_sf(c1, c2, topics)
