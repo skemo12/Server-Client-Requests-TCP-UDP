@@ -309,12 +309,6 @@ int main(int argc, char *argv[])
 					// se scoate din multimea de citire socketul inchis 
 					FD_CLR(i, &sel_sock);
 					close(i);
-					id_topics[sock_id[i]].erase(
-						remove_if(
-							id_topics[sock_id[i]].begin(),
-							id_topics[sock_id[i]].end(),
-							[](Topics i) { return i.sf == 0; }),
-					id_topics[sock_id[i]].end());
 					// for (auto i :id_topics[sock_id[i]])
 					// {
 					// 	printf("%s\n", i.topic.c_str());
