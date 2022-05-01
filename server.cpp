@@ -139,15 +139,7 @@ int main(int argc, char *argv[])
 		ret = select(fdmax + 1, &tmp_fds, NULL, NULL, NULL);
 		DIE(ret < 0, "select");
 		unordered_map<string, vector<Topics> >:: iterator it;
-		// for (it = id_topics.begin(); it != id_topics.end(); it++)
-		// {
-		// 	vector<Topics>::iterator x;
-		// 	for (x = it->second.begin(); x != it->second.end(); x++)
-		// 	{
-		// 		// printf("%s\n", x->topic.c_str());
-		// 	}
-			
-		// }
+
 		if (FD_ISSET(STDIN_FILENO, &tmp_fds))
 		{
 			memset(buffer, 0, sizeof(buffer));
@@ -237,13 +229,7 @@ int main(int argc, char *argv[])
 			clilen = sizeof(struct sockaddr);
 			n = recvfrom(sockUDP, buffer, sizeof(buffer) - 1, 0, (struct sockaddr *) &cli_addr, &clilen);
 			DIE(n < 0, "recvfrom");
-			buffer[n] = '\0';
 			string topic = buffer;
-			int pos = 0;
-			while (buffer[pos] != '\0')
-			{
-				pos++;
-			}
 
 			udp_message *message = (udp_message *) buffer;
 			
@@ -284,14 +270,7 @@ int main(int argc, char *argv[])
 				}
 				
 			}
-			
-			// strcpy(buffer, buffer + pos);
-			
-			// printf("Client udp: %c %d\n", buffer[pos + 1], pos); 
-			// // strcpy(buffer, buffer + pos + 1);
-			// buffer[pos] = ' ';
-			// string type = buffer;
-			// printf("Client udp: %s\n", type.c_str()); 
+
 			FD_CLR(sockUDP, &tmp_fds);
 		}  
 		for (i = 0; i <= fdmax + 1; i++) {
@@ -379,16 +358,9 @@ int main(int argc, char *argv[])
 						}
 						
 					}
-					
-					// Lab 8
-					// char c = buffer[0];
-					// int client = atoi(&c);
-					// printf("Client is %d\n", client);
-					// n = send(sockets[client - 1], buffer, sizeof(buffer) - 1, MSG_NOSIGNAL);
-					// DIE(n < 0, "send reply");
+				
 					
 				}
-				// }
 			}
 		}
 	}
