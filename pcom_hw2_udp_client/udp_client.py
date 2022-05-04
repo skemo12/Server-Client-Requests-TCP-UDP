@@ -76,7 +76,6 @@ def run_all_once(sock, parsed_args):
     for message in parsed_args.input_file:
         send_message(sock, message, parsed_args)
 
-
 def run_manual(sock, parsed_args):
     header = 'Please chose one of the following'
     options = '\n'.join(['{}. {}'.format(i, x['description']) for i, x in enumerate(parsed_args.input_file)])

@@ -1,206 +1,278 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <string.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <netdb.h>
 #include "helpers.h"
-#include <netinet/tcp.h>
+using namespace std;
 
-#include <string>
-#include <vector>
-#include <sstream>
-#include <algorithm>
-#include <cmath>
-#include <iomanip>
-
+// Interpretare mesaje trimise de clientii UDP
 typedef struct udp_message {
 	char topic[50];
 	uint8_t tip_date;
 	char content[1500];
 } udp_message;
 
+// Interpretare mesaj de la Server
 typedef struct server_message {
 	struct sockaddr_in addr;
 	udp_message message;
 } server_message;
 
+// Functie folosita pentru a trimite un mesaj de eroare in cazul in care 
+// un subscriber este rulat gresit
 void usage(char *file)
 {
 	fprintf(stderr, "Usage: %s id_client server_address server_port\n", file);
 	exit(0);
 }
 
-int main(int argc, char *argv[])
+// Verifica ca flag-ul pt SF este unul valid
+bool checkValidSF(string word)
 {
-	setvbuf(stdout, NULL, _IONBF, BUFSIZ);
-	int sockfd, n, ret;
-	struct sockaddr_in serv_addr;
-	char buffer[BUFLEN];
-	char command[65];
+	return (word == "1" || word == "0");
+}
 
-	if (argc < 3) {
-		usage(argv[0]);
+// Printeaza feedback-ul pentru o comanda
+void printCommand(char *command) 
+{
+	istringstream parseCommand(command);
+	string word;
+	if (parseCommand >> word && word == "subscribe")
+	{
+		printf("Subscribed to topic.\n");
+		
+	}
+	else
+	{
+		printf("Unsubscribed from topic.\n");
+	}
+}
+
+// Verifica ca o comanda de la tastatura este valida
+bool validCommand(char *command)
+{
+	istringstream parseCommand(command);
+	string word;
+	if (parseCommand >> word && word == "subscribe")
+	{
+		// verificam lungimea comenzii sa fie egala cu 3
+		if (parseCommand >> word && parseCommand >> word && checkValidSF(word))
+		{
+			return true;
+		}
+		
 	}
 
-	fd_set read_fds;	// multimea de citire folosita in select()
-	fd_set tmp_fds;		// multime folosita temporar
-	int fdmax;
+	if (parseCommand >> word && word == "unsubscribe" && parseCommand >> word)
+	{
+		return true;
+	}
 
+	return false;
+}
+
+// Afiseaza content-ul conform codificarii de INT
+void print_content_int(char *content)
+{
+	printf("INT - ");
+	uint32_t *value = (uint32_t *) (content + 1);
+	uint8_t sign = content[0];
+	if (sign == 1)
+	{
+		printf("-%d\n", ntohl(*value));
+	} else 
+	{
+		printf("%d\n", ntohl(*value));
+	}
+}
+
+// Afiseaza content-ul conform codificarii de SHORT_REAL
+void print_content_short_real(char *content)
+{
+	printf("SHORT_REAL - ");
+	uint16_t *value = (uint16_t *) (content);
+	if (ntohs(*value) % 100 == 0)
+	{
+		printf("%d\n", ntohs(*value) / 100);
+	}
+	else 
+	{
+		printf("%d.%02d\n", ntohs(*value) / 100, ntohs(*value) % 100);
+	}
+}
+
+// Afiseaza content-ul conform codificarii de FLOAT
+void print_content_float(char *content)
+{
+	printf("FLOAT - ");
+
+	uint32_t *value = (uint32_t *) (content + 1);
+	uint8_t sign = content[0];
+	uint8_t *power = (uint8_t *) (content + 1+ sizeof(uint32_t));
+	int divider = pow(10, *power);
+
+	if (sign == 1)
+	{
+		if (ntohl(*value) % divider == 0)
+		{
+			printf("-%d\n", ntohl(*value) / divider);
+		}
+		else 
+		{
+			printf("-%d.%0*d\n", ntohl(*value) / divider,
+								*power, ntohl(*value) % divider);
+		}
+	} 
+	else 
+	{
+		if (ntohl(*value) % divider == 0)
+		{
+			printf("%d\n", ntohl(*value) / divider);
+		}
+		else 
+		{
+			printf("%d.%0*d\n", ntohl(*value) / divider,
+								*power, ntohl(*value) % divider);
+		}
+	}
+}
+
+// Afiseaza content-ul conform codificarii de FLOAT
+void print_content_string(char *content)
+{
+	printf("STRING - ");
+	printf("%s\n", content);
+}
+
+// Interpreteaza un mesaj de la server
+void parse_server_message(char *buffer)
+{
+	server_message *ser_mess = (server_message *) buffer;
+	printf("%s:%d - %s - ", inet_ntoa(ser_mess->addr.sin_addr),
+			ntohs(ser_mess->addr.sin_port), ser_mess->message.topic);
+	udp_message *message = (udp_message *) &ser_mess->message;
+	switch (message->tip_date) {
+		case 0:
+		{
+			print_content_int(message->content);
+			break;
+		}
+		case 1:
+		{
+			print_content_short_real(message->content);
+			break;
+		}
+		case 2:
+		{
+			print_content_float(message->content);
+			break;
+		}
+		case 3:
+		{
+			print_content_string(message->content);
+			break;
+		}
+		default:
+		{
+			fprintf(stderr, "Not valid data type.\n");
+			break;
+		}
+	}
+	
+	
+}
+
+int main(int argc, char *argv[])
+{
+	// Setare pentru unbuffered stdout
+	setvbuf(stdout, NULL, _IONBF, BUFSIZ);
+	// Variabile folosite
+	int sockfd, n, ret, fdmax;
+	struct sockaddr_in serv_addr;
+	char buffer[BUFLEN];
+
+	// Daca nu avem 3 argumente la rulare, nu putem porni un client
+	if (argc < 4) {
+		usage(argv[0]);
+	}
+	// Multimea de sockets folosita si o copie a acesteia, golita
+	fd_set read_fds, copy_fds;	
 	FD_ZERO(&read_fds);
-	FD_ZERO(&tmp_fds);
+	FD_ZERO(&copy_fds);
 
+	// Creeare socket
 	sockfd = socket(AF_INET, SOCK_STREAM, 0);
 	DIE(sockfd < 0, "socket");
+	// Dezactivare Nagle
 	int flag = 1;	
-	int result = setsockopt(sockfd,            /* socket affected */
-                        IPPROTO_TCP,     /* set option at TCP level */
-                        TCP_NODELAY,     /* name of option */
-                        (char *) &flag,  /* the cast is historical cruft */
-                        sizeof(int));    /* length of option value */
-	DIE(result < 0, "TCP NODELAY");
+	int result = setsockopt(sockfd, IPPROTO_TCP, 
+							TCP_NODELAY, (char *) &flag, sizeof(int));    
+	DIE(result < 0, "TCP_NODELAY");
+
+	// Introducem cei 2 socketi folositi de client in multimea de socketi
 	FD_SET(STDIN_FILENO, &read_fds);
 	FD_SET(sockfd, &read_fds);
 
+	// Pregatim datele serverului si incercam conectarea la server
 	serv_addr.sin_family = AF_INET;
 	serv_addr.sin_port = htons(atoi(argv[3]));
 	ret = inet_aton(argv[2], &serv_addr.sin_addr);
 	DIE(ret == 0, "inet_aton");
-
 	ret = connect(sockfd, (struct sockaddr*) &serv_addr, sizeof(serv_addr));
 	DIE(ret < 0, "connect");
-	n = send(sockfd, argv[1], strlen(argv[1]), MSG_NOSIGNAL);
+	// Trimitem ID-ul clientului la server
+	n = send(sockfd, argv[1], strlen(argv[1]), 0);
 	DIE(n < 0, "send");
+
+	// Maxim dintre socket-ul tcp si stdin (= 0) este sigur socket-ul tcp
 	fdmax = sockfd;
+
 	while (1) {
-  		// se citeste de la stdin
-		tmp_fds = read_fds; 
-		ret = select(fdmax + 1, &tmp_fds, NULL, NULL, NULL);
+  		// Recopiem multimea de socketi, si asteptam un mesaj
+		copy_fds = read_fds; 
+		ret = select(fdmax + 1, &copy_fds, NULL, NULL, NULL);
 		DIE(ret < 0, "select");
 
-		if (FD_ISSET(STDIN_FILENO, &tmp_fds))
+		// Primim o comanda de la tastatura
+		if (FD_ISSET(STDIN_FILENO, &copy_fds))
 		{
-			memset(command, 0, sizeof(command));
-			n = read(STDIN_FILENO, command, sizeof(command));
+			// Citim de la tastatura o comanda
+			memset(buffer, 0, COMMANDLEN);
+			n = read(STDIN_FILENO, buffer, COMMANDLEN);
 			DIE(n < 0, "read");
 
-			if (strncmp(command, "exit", 4) == 0) {
+			// Daca comanda este exit, iesim din bucla si inchidem clientul
+			if (strncmp(buffer, "exit", 4) == 0) {
 				break;
 			}
 
-			// se trimite mesaj la server
-			// printf("message %s printf size %d\n", buffer, strlen(buffer));
-			n = send(sockfd, command, sizeof(command), 0);
-			DIE(n < 0, "send");
-			if (command[0] == 's')
+			// Parsam comanda primita si verificam daca este valida
+			if (validCommand(buffer))
 			{
-				printf("Subscribed to topic.\n");
-			}
-
-			if (command[0] == 'u')
-			{
-				printf("Unsubscribed from topic.\n");
-			}
-			FD_CLR(STDIN_FILENO, &tmp_fds);
+				n = send(sockfd, buffer, COMMANDLEN, 0);
+				DIE(n < 0, "send");
+				// Afisam feedback-ul pentru comanda
+				printCommand(buffer);
+			} else fprintf(stderr, "Invalid command.\n");
+			
+			FD_CLR(STDIN_FILENO, &copy_fds);
 		}
-		
-		if (FD_ISSET(sockfd, &tmp_fds))
+		// Am primit un mesaj de la server
+		if (FD_ISSET(sockfd, &copy_fds))
 		{
 			memset(buffer, 0, sizeof(buffer));
 			n = recv(sockfd, buffer, sizeof(server_message), 0);
 			DIE(n < 0, "recv");
+			// Daca n == 0, conexiunea cu serverul a fost inchisa, deci inchidem
+			// si clientul
 			if (n == 0)
 			{
 				break;
 			}
-			int len = n;
-			while (len != sizeof(server_message))
-			{
-				n = recv(sockfd, buffer + len, sizeof(server_message) - len, 0);
-				len += n;
-			}
-			server_message *ser_mess = (server_message *) buffer;
-			printf("%s:%d - %s - ", inet_ntoa(ser_mess->addr.sin_addr),
-					ntohs(ser_mess->addr.sin_port), ser_mess->message.topic);
-			udp_message *message = (udp_message *) &ser_mess->message;
-			if (message->tip_date == 0)
-			{
-				printf("INT - ");
-				uint32_t *test = (uint32_t *) (message->content + 1);
-				uint8_t sign = message->content[0];
-				if (sign == 1)
-				{
-					printf("-%d\n", ntohl(*test));
-				} else 
-				{
-					printf("%d\n", ntohl(*test));
-				}
-				
-			}
 
-			if (message->tip_date == 1)
-			{
-				printf("SHORT_REAL - ");
-				uint16_t *test = (uint16_t *) (message->content);
-				if (ntohs(*test) % 100 == 0)
-				{
-					printf("%d\n", ntohs(*test) / 100);
-				}
-				else 
-				{
-					printf("%d.%02d\n", ntohs(*test) / 100, ntohs(*test) % 100);
-				}
-			}
-
-			if (message->tip_date == 2)
-			{
-				printf("FLOAT - ");
-
-				uint32_t *test = (uint32_t *) (message->content + 1);
-				uint8_t sign = message->content[0];
-
-				uint8_t *power = (uint8_t *) (message->content + 1 + sizeof(uint32_t));
-				int divider = pow(10, *power);
-				if (sign == 1)
-				{
-					if (ntohl(*test) % divider == 0)
-					{
-						printf("-%d\n", ntohl(*test) / divider);
-					}
-					else 
-					{
-						printf("-%d.%0*d\n", ntohl(*test) / divider, *power, ntohl(*test) % divider);
-					}
-				} else 
-				{
-					if (ntohl(*test) % divider == 0)
-					{
-						printf("%d\n", ntohl(*test) / divider);
-					}
-					else 
-					{
-						printf("%d.%0*d\n", ntohl(*test) / divider, *power, ntohl(*test) % divider);
-					}
-				}
-			}
-			if (message->tip_date == 3)
-			{
-				printf("STRING - ");
-				printf("%s\n", message->content);
-
-			}
-			FD_CLR(sockfd, &tmp_fds);
-
+			// Ne asiguram ca primim exact un mesaj intreg de la server
+			receive_complete_message(sockfd, buffer, n, sizeof(server_message));
+			// Verificam mesajul de la server, si afisam in functie de tip.
+			parse_server_message(buffer);
+			FD_CLR(sockfd, &copy_fds);
 		}
-
-
-
 	}
-
 	close(sockfd);
-
 	return 0;
 }

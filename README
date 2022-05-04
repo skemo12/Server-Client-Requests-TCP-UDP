@@ -1,0 +1,11 @@
+Command Len - 65 = 50 de octeti topic, restul pentru mesajul clientului.
+
+Pentru a asigura primirea mesajelor intregi (nu concatenate sau incomplete),
+m-am folosit de structura server_message, ce stabilizeaza lungimea unui mesaj 
+pe care un client o poate primi la exact sizeof(server_message). Daca primim mai
+putin, repetam recv pana avem exact sizeof(server_message) octeti primiti (la 
+fiecare pas, scadem numarul de octeti ce pot fi primiti, numarul fiind diferenta
+dintre numarul de octeti ce trebuie primiti, adica sizeof(server_message), si 
+numarul de octeti primiti pana in acel moment.) De asemenea, pentru a ne asigura
+ca nu primim mai mult de un mesaj, la fiecare receive pe socketul ce este
+conectat la server, vom primi maxim sizeof(server_message) octeti.
