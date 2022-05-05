@@ -17,11 +17,12 @@ typedef struct save_packets {
 	string id;
 } save_packets;
 
-class TCPClient {       // The class
-  public:             // Access specifier
-    int socket;        // Attribute (int variable)
-    string id;  // Attribute (string variable)
-	vector<string> topics;
+class TCPClient {
+	public:            
+		int socket;
+		bool connected;
+		string id;
+		vector<string> topics;
 };
 
 class Topics {
@@ -93,6 +94,130 @@ void print_client_connected(char *id, struct sockaddr_in cli_addr)
 	printf("New client %s connected from %s:%d\n", id,
 			inet_ntoa(cli_addr.sin_addr), ntohs(cli_addr.sin_port));
 }
+
+void execute_command(char *command, unordered_map<int, string> *sock_id,
+				unordered_map<string, vector<Topics> > *id_topics, int socket)
+{
+	istringstream command_spliter(command);
+	string word;
+	string client = (*sock_id)[socket];
+	if (command_spliter >> word)
+	{
+		/* take first word, subscribe/ unsccribe */
+		// printf("right message\n");
+		// string command = message.substr(0, message.find(" "));
+		// printf("word %s\n", word.c_str());
+		if (word.compare("subscribe") == 0)
+		{
+			if(command_spliter >> word) {
+				string topicToSubscribeTo = word;
+				if(command_spliter >> word) {
+					// printf("word topic %s\n", topicToSubscribeTo.c_str());
+
+					// printf("word flag %s\n", word.c_str());
+					Topics topic;
+					topic.sf = stoi(word);
+					topic.topic = topicToSubscribeTo;
+					(*id_topics)[client].push_back(topic);
+					// printf("verif %s\n", topics_socks[std::to_string(i)][0].topic.c_str());
+				}
+			}
+		}
+
+		if (word.compare("unsubscribe") == 0)
+		{
+			if(command_spliter >> word) {
+				// printf("word topic %s\n", word.c_str());
+				vector<Topics>::iterator topic_iterator;
+				for (topic_iterator = (*id_topics)[client].begin(); 
+					topic_iterator != (*id_topics)[client].end();
+					topic_iterator++)
+				{
+					if (topic_iterator->topic.compare(word) == 0)
+					{
+						break;
+					}
+					
+				}
+				if (topic_iterator != (*id_topics)[client].end())
+				{
+					(*id_topics)[client].erase(topic_iterator);
+				}
+				
+			}
+			else 
+			{
+				fprintf(stderr, "No topic given for unsubscribe.\n");
+			}
+		}
+		
+	}
+}
+
+void client_stop(unordered_map<string, int> *id_sock,
+			unordered_map<int, string> *sock_id, int socket, fd_set *sockets)
+{
+	printf("Client %s disconnected.\n", (*sock_id)[socket].c_str());
+	
+	// se scoate din multimea de citire socketul inchis 
+	FD_CLR(socket, sockets);
+	close(socket);
+	
+	(*id_sock).erase((*sock_id)[socket]);
+	(*sock_id).erase(socket);
+}
+
+void send_udp_message_to_clients(char *buffer,
+							unordered_map<string, vector<Topics> > *id_topics,
+							unordered_map<string, int> (*id_sock), 
+							struct sockaddr_in cli_addr,
+							vector<save_packets> *saved_packets)
+{
+	int ret;
+	udp_message *message = (udp_message *) buffer;
+	
+	message_for_tcp toSend;
+	toSend.message = *message;
+	memset(&toSend.addr, 0, sizeof(toSend.addr));
+	toSend.addr.sin_family = AF_INET;
+	toSend.addr = cli_addr;
+	// printf("Sender %s port %d\n", inet_ntoa(toSend.addr.sin_addr), toSend.addr.sin_port);
+	for (auto c_topics : (*id_topics))
+	{
+		auto topic = find_if(c_topics.second.begin(), c_topics.second.end(),
+			[&message] (Topics el){
+					return el.topic.compare(message->topic) == 0;
+				});
+	
+		if (topic != c_topics.second.end())
+		{
+			if ((*id_sock).find(c_topics.first) != (*id_sock).end())
+			{
+				// printf("founded!%d\n", counter++);
+				ret = send((*id_sock)[c_topics.first], &toSend,
+							sizeof(message_for_tcp), 0);
+				DIE(ret < 0, "send");
+			}
+			else
+			{
+				if (topic->sf == 1)
+				{
+					save_packets packet;
+					packet.id = c_topics.first;
+					packet.message = toSend;
+					(*saved_packets).push_back(packet);
+				}
+				
+			}
+
+			
+
+		}
+		
+	}
+
+	
+}
 int main(int argc, char *argv[])
 {
 	setvbuf(stdout, NULL, _IONBF, BUFSIZ);
@@ -101,7 +226,7 @@ int main(int argc, char *argv[])
 
 	struct sockaddr_in serv_addr, cli_addr;
 	int n, i, ret;
-	socklen_t clilen;
+	socklen_t clilen = sizeof(cli_addr);
 	socklen_t sockaddr_len = sizeof(struct sockaddr);
 
 	// Structuri de date pentru salvarea datelor folosite
@@ -123,7 +248,9 @@ int main(int argc, char *argv[])
 		usage(argv[0]);
 	}
 
-	// se goleste multimea de descriptori de citire (tcp_fds) si multimea temporara (tmp_fds)
+	// se goleste multimea de descriptori de citire (tcp_fds)
+	// si multimea temporara (tmp_fds)
+	FD_ZERO(&sel_sock);
 	FD_ZERO(&tmp_fds);
 
 	sockTCP = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
@@ -194,148 +321,44 @@ int main(int argc, char *argv[])
 
 			memset(buffer, 0, sizeof(buffer));
 			n = recv(new_sock, buffer, IDLEN, 0);
-			char id[10];
-			strncpy(id, buffer, 10);
-			if (id_unique(&id_sock, new_sock, id))
+			if (id_unique(&id_sock, new_sock, buffer))
 			{
-				save_client(&id_sock, new_sock, id, &fdmax, &sel_sock, &sock_id);
-				print_client_connected(id, cli_addr);
-				send_saved_packets(&saved_packets, id, new_sock);	
+				save_client(&id_sock, new_sock, buffer, &fdmax,
+							&sel_sock, &sock_id);
+				print_client_connected(buffer, cli_addr);
+				send_saved_packets(&saved_packets, buffer, new_sock);	
 			}
 			
 			FD_CLR(sockTCP, &tmp_fds);
 		}
 		if (FD_ISSET(sockUDP, &tmp_fds)) 
 		{
-			// printf("UDP\n");
-			// a venit o cerere de conexiune pe socketul UDP,
-			// pe care serverul o accepta
-			clilen = sizeof(cli_addr);
 			memset(buffer, 0, BUFLEN);
-			memset((char *) &cli_addr, 0, sizeof(cli_addr));
-
+			memset(&cli_addr, 0, sizeof(cli_addr));
 			clilen = sizeof(struct sockaddr);
 			n = recvfrom(sockUDP, buffer, sizeof(buffer), 0,
-							(struct sockaddr *) &cli_addr, &clilen);
+					(struct sockaddr *) &cli_addr, &clilen);
 			DIE(n < 0, "recvfrom");
-
-			udp_message *message = (udp_message *) buffer;
-			
-			message_for_tcp toSend;
-			toSend.message = *message;
-			memset(&toSend.addr, 0, sizeof(toSend.addr));
-			toSend.addr.sin_family = AF_INET;
-			toSend.addr = cli_addr;
-			// printf("Sender %s port %d\n", inet_ntoa(toSend.addr.sin_addr), toSend.addr.sin_port);
-			for (auto x = id_topics.begin(); x != id_topics.end(); x++)
-			{
-				auto itr = find_if(x->second.begin(), x->second.end(),
-					[&message] (Topics el){
-							return el.topic.compare(message->topic) == 0;
-						});
-			
-				if (itr != x->second.end())
-				{
-					if (id_sock.find(x->first) != id_sock.end())
-					{
-						// printf("founded!%d\n", counter++);
-						n = send(id_sock[x->first], &toSend, sizeof(message_for_tcp), 0);
-						DIE(n < 0, "send");
-					}
-					else
-					{
-						if (itr->sf == 1)
-						{
-							save_packets packet;
-							packet.id = x->first;
-							packet.message = toSend;
-							saved_packets.push_back(packet);
-						}
-						
-					}
-
-					
-
-				}
-				
-			}
-
+			send_udp_message_to_clients(buffer, &id_topics, &id_sock,
+										cli_addr, &saved_packets);
 			FD_CLR(sockUDP, &tmp_fds);
 		}  
 		for (i = 0; i <= fdmax + 1; i++) {
 			if (FD_ISSET(i, &tmp_fds)) {
 				// s-au primit date pe unul din socketii de client,
 				// asa ca serverul trebuie sa le receptioneze
-				memset(command, 0, BUFLEN);
-				n = recv(i, command, sizeof(command), 0);
+				memset(command, 0, COMMANDLEN);
+				n = recv(i, command, COMMANDLEN, 0);
 				DIE(n < 0, "recv");
 
 				if (n == 0) {
 					// conexiunea s-a inchis
-					printf("Client %s disconnected.\n", sock_id[i].c_str());
-					
-					// se scoate din multimea de citire socketul inchis 
-					FD_CLR(i, &sel_sock);
-					close(i);
-					
-					id_sock.erase(sock_id[i]);
-					sock_id.erase(i);
+					client_stop(&id_sock, &sock_id, i, &sel_sock);
 					
 				} else {
-					receive_complete_message(i, command, n, COMMANDLEN);
 					// printf("S-a primit de la clientul de pe socketul %d mesajul: lungime %d %s\n", i, n, command);
-
-					string str(command);
-					istringstream message(str);
-					string word;
-					string client = sock_id[i];
-					if (message >> word)
-					{
-						/* take first word, subscribe/ unsccribe */
-						// printf("right message\n");
-						// string command = message.substr(0, message.find(" "));
-						// printf("word %s\n", word.c_str());
-						if (word.compare("subscribe") == 0)
-						{
-							if(message >> word) {
-								string topicToSubscribeTo = word;
-								if(message >> word) {
-									// printf("word topic %s\n", topicToSubscribeTo.c_str());
-
-									// printf("word flag %s\n", word.c_str());
-									Topics topic;
-									topic.sf = stoi(word);
-									topic.topic = topicToSubscribeTo;
-									id_topics[client].push_back(topic);
-									// printf("verif %s\n", topics_socks[std::to_string(i)][0].topic.c_str());
-								}
-							}
-						}
-
-						if (word.compare("unsubscribe") == 0)
-						{
-							if(message >> word) {
-								// printf("word topic %s\n", word.c_str());
-								vector<Topics>::iterator x;
-								for (x = id_topics[client].begin(); x != id_topics[client].end(); x++)
-								{
-									printf("%s\n", x->topic.c_str());
-									if (x->topic.compare(word) == 0)
-									{
-										break;
-									}
-									
-								}
-								if (x != id_topics[client].end())
-								{
-									id_topics[client].erase(x);
-								}
-								
-							}
-						}
-						
-					}
-				
+					receive_complete_message(i, command, n, COMMANDLEN);
+					execute_command(command, &sock_id, &id_topics, i);
 					
 				}
 			}

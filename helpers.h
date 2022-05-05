@@ -19,6 +19,7 @@
 #include <algorithm>
 #include <cmath>
 #include <iomanip>
+#include <map>
 
 /*
  * Macro de verificare a erorilor
@@ -44,11 +45,13 @@
 void receive_complete_message(int sockfd, char *buffer,
 									int current_size, int message_size)
 {
+	int ret;
 	while (current_size != message_size)
 	{
-		current_size += recv(sockfd, buffer + current_size,
+		ret = recv(sockfd, buffer + current_size,
 								message_size - current_size, 0);
-		DIE(current_size < 0, "recv");
+		DIE(ret < 0, "recv");
+		current_size += ret;
 	}
 }
 #endif
