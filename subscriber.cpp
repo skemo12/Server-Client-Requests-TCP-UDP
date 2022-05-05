@@ -58,7 +58,8 @@ bool validCommand(char *command)
 		}
 		
 	}
-
+	parseCommand.clear();
+	parseCommand.str(command);
 	if (parseCommand >> word && word == "unsubscribe" && parseCommand >> word)
 	{
 		return true;
@@ -267,7 +268,7 @@ int main(int argc, char *argv[])
 			}
 
 			// Ne asiguram ca primim exact un mesaj intreg de la server
-			receive_complete_message(sockfd, buffer, n, sizeof(server_message));
+			recv_full_message(sockfd, buffer, n, sizeof(server_message));
 			// Verificam mesajul de la server, si afisam in functie de tip.
 			parse_server_message(buffer);
 			FD_CLR(sockfd, &copy_fds);

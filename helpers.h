@@ -12,7 +12,6 @@
 #include <arpa/inet.h>
 
 #include <netinet/tcp.h>
-#include <unordered_map>
 #include <string>
 #include <vector>
 #include <sstream>
@@ -28,6 +27,10 @@
  *     DIE(fd == -1, "open failed");
  */
 
+#define BUFLEN		2048	// dimensiunea maxima a calupului de date
+#define COMMANDLEN	65		// dimensiunea maxima a unei comenzi de la tastatura
+#define IDLEN	11
+
 #define DIE(assertion, call_description)	\
 	do {									\
 		if (assertion) {					\
@@ -38,20 +41,15 @@
 		}									\
 	} while(0)
 
-#define BUFLEN		2048	// dimensiunea maxima a calupului de date
-#define COMMANDLEN	65		// dimensiunea maxima a unei comenzi de la tastatura
-#define IDLEN	11
-
-void receive_complete_message(int sockfd, char *buffer,
-									int current_size, int message_size)
+void recv_full_message(int sockfd, char *buffer, int curr_size, int full_size)
 {
 	int ret;
-	while (current_size != message_size)
+	while (curr_size != full_size)
 	{
-		ret = recv(sockfd, buffer + current_size,
-								message_size - current_size, 0);
+		ret = recv(sockfd, buffer + curr_size,
+								full_size - curr_size, 0);
 		DIE(ret < 0, "recv");
-		current_size += ret;
+		curr_size += ret;
 	}
 }
 #endif
