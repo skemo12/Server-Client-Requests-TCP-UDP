@@ -421,6 +421,7 @@ def run_test_c1_restart(server):
   # generate one message for each topic
   print("Generating one message for each topic")
   run_udp_client()
+  sleep(1)
 
   # restart and check subscriber C1
   return start_and_check_client(server, "1", True)

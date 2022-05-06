@@ -1,6 +1,53 @@
-Command Len - 65 = 50 de octeti topic, restul pentru mesajul clientului.
+-- Tema 2 PCOM -- Paunoiu Darius Alexandru -- 322CD -- README
 
-Pentru a asigura primirea mesajelor intregi (nu concatenate sau incomplete),
+
+    Am ales sa rezolv tema in C++ pentru a beneficia de structurile de date
+si de functionalele din acest limbaj. Toate functiile, campurile, si clasele
+sunt descrise in cod prin comentarii, dar voi detalia anumite aspecte mai
+importante si in acest README.
+    Serverul primeste urmatoare tipuri de pachete prin socketii definiti:
+        1. Comenzi de la subscribers, de tipul subscribe, unsubscribe si exit, 
+        pentru care nu am defenit o structura, dar mesajul este interpretat ca 
+        un sir de caractere 
+        2. Pachete de la clientii UDP, pentru care am defenit structura 
+        udp_message
+        3. Cereri de conectare, care sunt acceptate daca ID-ul este unic.
+    De asemenea, serverul primeste date de intrare si prin STDIN, acceptand ca
+mesaj valid doar mesajul de "exit". Pentru alte mesaje va afisa la stderr 
+mesajul "Invalid input.\n".
+    Subscriberul poate doar un tip de pachete pe socket-ul TCP pe care 
+realizeaza conexiunea la server:
+        - un pachet de tipul server_message, interpretat cu ajutorul structurii
+        cu acelasi nume. Acesta contine datele clientului UDP care a trimis 
+        mesajul, cat si mesajul trimit sub structura de udp_message, aceeasi ca
+        cea definita pentru server.
+    De asemenea, subscriberul accepta si comenzi de la tastatura, comenzile
+valide fiind cele definite in enunt. Pentru o comanda invalida se va afisa 
+mesajul "Not a valid input command.\n" la stderr.
+Desi serverul foloseste structura udp_message, acesta nu interpreteaza din
+mesajul primit decat campul topic. Interpretarea continutului unui pachet (
+campul content) in functie de tipul de date se face de catre subscriber. Am ales
+aceasta implemtare datorita urmatoarelor motive:
+        - se reduce timpul necesar parsarii unui mesaj de la clientul UDP pentru
+        server. Deoarece fiecare subscriber isi interpreteaza singur pachetele, 
+        aceasta munca este impartita pe toti clientii abonati la acel topic, iar
+        serverul nu mai trebui sa faca acest lucru, scazand latenta primirii 
+        mesajelor de catre subscriber.
+        - in cazul in care se doreste o encriptare a mesajelor de tipul
+        END-to-END, serverul nu ar trebui sa stie decat topic-ul la care un
+        client este abonat, neavand accest la continut.
+    Serverul mai foloseste 2 clase dedicate lui, acestea fiind:
+        - clasa Topic, ce este folosita pentru descrierea unui topic. aceasta
+        clasa are 2 atribute si nicio metoda. Am ales sa descriu topic-ul cu o 
+        clasa in locul unui structuri pentru ca aceasta metoda este mai fezabila
+        pentru termen lung, fiind usor de adaugat mai multe functionalitati la 
+        aceasta clasa in caz ca este nevoie.
+        - clasa Subscriber, care descrie in intregime un subscriber. Aceasta are
+        mai multe atribute si metode, toate fiind descrise cu comentarii in cod.
+    Totodata, pentru a fii mai rapid, socket-ul nu face parcugerea clasica
+pentru select, de la i = 0 la i -> fdmax, ci verifica doar socketii clientilor
+salvati.
+    Pentru a asigura primirea mesajelor intregi (nu concatenate sau incomplete),
 m-am folosit de structura server_message, ce stabilizeaza lungimea unui mesaj 
 pe care un client o poate primi la exact sizeof(server_message). Daca primim mai
 putin, repetam recv pana avem exact sizeof(server_message) octeti primiti (la 
@@ -9,3 +56,5 @@ dintre numarul de octeti ce trebuie primiti, adica sizeof(server_message), si
 numarul de octeti primiti pana in acel moment.) De asemenea, pentru a ne asigura
 ca nu primim mai mult de un mesaj, la fiecare receive pe socketul ce este
 conectat la server, vom primi maxim sizeof(server_message) octeti.
+    Biblioteca helpers.h contine constante si functii utile folosite atat de
+subscriber cat si de server.

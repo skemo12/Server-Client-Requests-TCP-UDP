@@ -1,27 +1,6 @@
 #include "helpers.h"
 using namespace std;
 
-// Interpretare mesaje trimise de clientii UDP
-typedef struct udp_message {
-	char topic[50];
-	uint8_t tip_date;
-	char content[1500];
-} udp_message;
-
-// Interpretare mesaj de la Server
-typedef struct server_message {
-	struct sockaddr_in addr;
-	udp_message message;
-} server_message;
-
-// Functie folosita pentru a trimite un mesaj de eroare in cazul in care 
-// un subscriber este rulat gresit
-void usage(char *file)
-{
-	fprintf(stderr, "Usage: %s id_client server_address server_port\n", file);
-	exit(0);
-}
-
 // Verifica ca flag-ul pt SF este unul valid
 bool checkValidSF(string word)
 {
@@ -181,17 +160,21 @@ void parse_server_message(char *buffer)
 
 int main(int argc, char *argv[])
 {
-	// Setare pentru unbuffered stdout
+	// Declarari de variabile si setarea STDOUT-ului
 	setvbuf(stdout, NULL, _IONBF, BUFSIZ);
 	// Variabile folosite
-	int sockfd, n, ret, fdmax;
+	int sockfd, n, ret, fdmax, portno;
 	struct sockaddr_in serv_addr;
 	char buffer[BUFLEN];
 
-	// Daca nu avem 3 argumente la rulare, nu putem porni un client
-	if (argc < 4) {
-		usage(argv[0]);
-	}
+	// Verificam rularea corecta
+	usage(argc, 4, argv[0]);
+
+	// Pregatim argumentele subscriberul
+	portno = atoi(argv[3]);
+	DIE(portno < 0, "atoi");
+	memset(buffer, 0, IDLEN);
+	strcpy(buffer, argv[1]);
 	// Multimea de sockets folosita si o copie a acesteia, golita
 	fd_set read_fds, copy_fds;	
 	FD_ZERO(&read_fds);
@@ -212,13 +195,13 @@ int main(int argc, char *argv[])
 
 	// Pregatim datele serverului si incercam conectarea la server
 	serv_addr.sin_family = AF_INET;
-	serv_addr.sin_port = htons(atoi(argv[3]));
+	serv_addr.sin_port = htons(portno);
 	ret = inet_aton(argv[2], &serv_addr.sin_addr);
 	DIE(ret == 0, "inet_aton");
 	ret = connect(sockfd, (struct sockaddr*) &serv_addr, sizeof(serv_addr));
 	DIE(ret < 0, "connect");
 	// Trimitem ID-ul clientului la server
-	n = send(sockfd, argv[1], strlen(argv[1]), 0);
+	n = send(sockfd, buffer, IDLEN, 0);
 	DIE(n < 0, "send");
 
 	// Maxim dintre socket-ul tcp si stdin (= 0) este sigur socket-ul tcp
@@ -250,7 +233,7 @@ int main(int argc, char *argv[])
 				DIE(n < 0, "send");
 				// Afisam feedback-ul pentru comanda
 				printCommand(buffer);
-			} else fprintf(stderr, "Invalid command.\n");
+			} else fprintf(stderr, "Not a valid input command.\n");
 			
 			FD_CLR(STDIN_FILENO, &copy_fds);
 		}
