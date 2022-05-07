@@ -5,7 +5,7 @@
 CFLAGS = -Wall -g
 
 # Portul pe care asculta serverul (de completat)
-PORT = 4444
+PORT = 3333
 
 # Adresa IP a serverului (de completat)
 IP_SERVER = 127.0.0.1
@@ -17,7 +17,7 @@ server: server.cpp
 	g++ -g server.cpp -o server
 # Compileaza client.c
 subscriber: subscriber.cpp
-
+	g++ -g subscriber.cpp -o subscriber
 .PHONY: clean run_server run_subscriber
 
 # Ruleaza serverul

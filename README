@@ -1,26 +1,32 @@
--- Tema 2 PCOM -- Paunoiu Darius Alexandru -- 322CD -- README
+-- Tema 2 PCom-- Paunoiu Darius Alexandru -- 322CD -- README
 
 
+    Tema este rezolvata integral, rezolvarea gasindu-se in 3 fisiere:
+        - server.cpp
+        - subscriber.cpp
+        - helpers.h
     Am ales sa rezolv tema in C++ pentru a beneficia de structurile de date
 si de functionalele din acest limbaj. Toate functiile, campurile, si clasele
 sunt descrise in cod prin comentarii, dar voi detalia anumite aspecte mai
-importante si in acest README.
+importante si in acest README. Biblioteca helpers.h contine structuri constante
+si functii utile folosite atat de subscriber cat si de server. Toate sunt
+explicate prin comentarii.
     Serverul primeste urmatoare tipuri de pachete prin socketii definiti:
         1. Comenzi de la subscribers, de tipul subscribe, unsubscribe si exit, 
-        pentru care nu am defenit o structura, dar mesajul este interpretat ca 
-        un sir de caractere 
+        pentru care am defenit structura command
         2. Pachete de la clientii UDP, pentru care am defenit structura 
         udp_message
-        3. Cereri de conectare, care sunt acceptate daca ID-ul este unic.
+        3. Cereri de conectare, care sunt acceptate daca ID-ul este unic. ID-ul
+        este obtinut tot prin intermediul structurii command.
     De asemenea, serverul primeste date de intrare si prin STDIN, acceptand ca
 mesaj valid doar mesajul de "exit". Pentru alte mesaje va afisa la stderr 
 mesajul "Invalid input.\n".
-    Subscriberul poate doar un tip de pachete pe socket-ul TCP pe care 
+    Subscriberul poate primi doar un tip de pachete pe socket-ul TCP pe care 
 realizeaza conexiunea la server:
         - un pachet de tipul server_message, interpretat cu ajutorul structurii
         cu acelasi nume. Acesta contine datele clientului UDP care a trimis 
         mesajul, cat si mesajul trimit sub structura de udp_message, aceeasi ca
-        cea definita pentru server.
+        cea definita pentru server. El contine si lungimea pachetului.
     De asemenea, subscriberul accepta si comenzi de la tastatura, comenzile
 valide fiind cele definite in enunt. Pentru o comanda invalida se va afisa 
 mesajul "Not a valid input command.\n" la stderr.
@@ -48,13 +54,28 @@ aceasta implemtare datorita urmatoarelor motive:
 pentru select, de la i = 0 la i -> fdmax, ci verifica doar socketii clientilor
 salvati.
     Pentru a asigura primirea mesajelor intregi (nu concatenate sau incomplete),
-m-am folosit de structura server_message, ce stabilizeaza lungimea unui mesaj 
-pe care un client o poate primi la exact sizeof(server_message). Daca primim mai
-putin, repetam recv pana avem exact sizeof(server_message) octeti primiti (la 
+m-am folosit de structura server_message, ce salveaza lungimea unui mesaj 
+in functie de tipul de date pe care il primeste. (De exemplu, pentru int, din
+cei 1500 de octeti din content, se folosesc doar 5 octeti, deci pentru tipul 0 
+avem 5 octeti). Numarul de octeti necesar este dat de functie bytes_needed. La
+primul recv, vom primi cei 4 octeti ce reprezinta dimensiunea pachetului, dupa
+care repetam recv pana avem exact number_of_bytes octeti primiti (la 
 fiecare pas, scadem numarul de octeti ce pot fi primiti, numarul fiind diferenta
-dintre numarul de octeti ce trebuie primiti, adica sizeof(server_message), si 
-numarul de octeti primiti pana in acel moment.) De asemenea, pentru a ne asigura
-ca nu primim mai mult de un mesaj, la fiecare receive pe socketul ce este
-conectat la server, vom primi maxim sizeof(server_message) octeti.
-    Biblioteca helpers.h contine constante si functii utile folosite atat de
-subscriber cat si de server.
+dintre numarul de octeti ce trebuie primiti, adica number_of_bytes, si  numarul 
+de octeti primiti pana in acel moment.) De asemenea, pentru a ne asigura ca nu 
+primim mai mult de un mesaj, la fiecare receive pe socketul ce este
+conectat la server, vom primi initial 4 octeti, dupa care restul de octeti.
+    Pentru mesajele de la client la server, m-am folosit de structura command.
+Abordarea este similara cu cea pentru server_message. Initial primim maxim 4 
+octeti, dupa care restul de octeti. Dimensiunea mesajului este de maxim 65 de
+octeti (50 numele topicului, + cuvantul subscribe si tagul sf sau unsubscribe).
+Totusi, aceasta este dimensiunea maxima,si sunt trimisi doar cati octeti sunt
+necesari.
+    De asemenea, pentru trimite id-ul unui client, se va trimite un mesaj de 
+tipul command cu numarul de octeti trimisi egala cu lungimea ID-ului + restul
+de octeti necesari. 
+    Aceste constante si structuri sunt folosite atat la trimitere cat si la 
+primire. Tema urmeaza o abordare cat mai eficienta posibila, atat din punctul
+de vedere al timpului cat si al memoriei folosite.
+
+    Va multumesc pentru atentie si feedback!

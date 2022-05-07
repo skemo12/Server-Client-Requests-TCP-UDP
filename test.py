@@ -392,7 +392,6 @@ def run_test_c1_subscribe_all(server, c1, topics):
 def run_test_data_subscribed(server, c1, topics):
   """Tests that subscriber C1 receives messages on subscribed topics."""
   fail_test("data_subscribed")
-
   # generate one message for each topic
   print("Generating one message for each topic")
   run_udp_client()
