@@ -6,7 +6,7 @@ make all --print-data-base --no-builtin-variables --no-builtin-rules --question
 # This is free software: you are free to change and redistribute it.
 # There is NO WARRANTY, to the extent permitted by law.
 
-# Make data base, printed on Sun May  8 02:14:18 2022
+# Make data base, printed on Sun May  8 11:16:52 2022
 
 # Variables
 
@@ -69,7 +69,7 @@ VSCODE_PIPE_LOGGING = true
 # environment
 PWD = /home/skemo/Facultate/Pcom/tema2/Tema2Pcom
 # environment
-VSCODE_IPC_HOOK_CLI = /tmp/vscode-ipc-ae1a2ff9-d654-45a0-b3d0-dd842302fd53.sock
+VSCODE_IPC_HOOK_CLI = /tmp/vscode-ipc-5dcbc726-09e3-49ae-99ce-cb45a9332922.sock
 # environment
 WSL_INTEROP = /run/WSL/10_interop
 # environment
@@ -83,7 +83,7 @@ J2REDIR = /usr/lib/jvm/java-17-oracle
 # environment
 LOGNAME = skemo
 # environment
-APPLICATION_INSIGHTS_NO_DIAGNOSTIC_CHANNEL = 1
+APPLICATION_INSIGHTS_NO_DIAGNOSTIC_CHANNEL = true
 # environment
 J2SDKDIR = /usr/lib/jvm/java-17-oracle
 # environment
@@ -159,7 +159,7 @@ VSCODE_EXTHOST_WILL_SEND_SOCKET = true
 # environment
 WSL_DISTRO_NAME = Ubuntu-18.04
 # variable set hash-table stats:
-# Load=74/1024=7%, Rehash=0, Collisions=4/99=4%
+# Load=74/1024=7%, Rehash=0, Collisions=4/102=4%
 
 # Pattern-specific Variable Values
 
@@ -167,9 +167,9 @@ WSL_DISTRO_NAME = Ubuntu-18.04
 
 # Directories
 
-# . (device 2064, inode 54079): 24 files, no impossibilities.
+# . (device 2064, inode 54079): 22 files, no impossibilities.
 
-# 24 files, no impossibilities in 1 directories.
+# 22 files, no impossibilities in 1 directories.
 
 # Implicit Rules
 
@@ -179,9 +179,8 @@ WSL_DISTRO_NAME = Ubuntu-18.04
 
 subscriber: subscriber.cpp
 #  Implicit rule search has not been done.
-#  Last modified 2022-05-08 02:14:09.26
-#  File has been updated.
-#  Successfully updated.
+#  Modification time never checked.
+#  File has not been updated.
 #  recipe to execute (from 'Makefile', line 20):
 	g++ -g subscriber.cpp -o subscriber
 
@@ -190,9 +189,17 @@ all: server subscriber
 #  Implicit rule search has been done.
 #  File does not exist.
 #  File has been updated.
-#  Successfully updated.
+#  Needs to be updated (-q is set).
+# variable set hash-table stats:
+# Load=0/32=0%, Rehash=0, Collisions=0/3=0%
 
 .PHONY: clean run_server run_subscriber
+#  Implicit rule search has not been done.
+#  Modification time never checked.
+#  File has not been updated.
+
+# Not a target:
+.SUFFIXES:
 #  Implicit rule search has not been done.
 #  Modification time never checked.
 #  File has not been updated.
@@ -206,9 +213,28 @@ Makefile:
 
 server: server.cpp
 #  Implicit rule search has not been done.
-#  Last modified 2022-05-08 02:14:08.69
+#  Implicit/static pattern stem: ''
+#  File does not exist.
 #  File has been updated.
-#  Successfully updated.
+#  Needs to be updated (-q is set).
+# automatic
+# @ := server
+# automatic
+# % := 
+# automatic
+# * := 
+# automatic
+# + := server.cpp
+# automatic
+# | := 
+# automatic
+# < := server.cpp
+# automatic
+# ^ := server.cpp
+# automatic
+# ? := server.cpp
+# variable set hash-table stats:
+# Load=8/32=25%, Rehash=0, Collisions=1/11=9%
 #  recipe to execute (from 'Makefile', line 17):
 	g++ -g server.cpp -o server
 
@@ -243,14 +269,14 @@ run_server: server
 
 # Not a target:
 subscriber.cpp:
-#  Implicit rule search has been done.
-#  Last modified 2022-05-08 02:05:23.38
-#  File has been updated.
-#  Successfully updated.
+#  Implicit rule search has not been done.
+#  Modification time never checked.
+#  File has not been updated.
 
 clean:
 #  Phony target (prerequisite of .PHONY).
 #  Implicit rule search has not been done.
+ 
 #  File does not exist.
 #  File has not been updated.
 #  recipe to execute (from 'Makefile', line 35):
@@ -259,12 +285,12 @@ clean:
 # Not a target:
 server.cpp:
 #  Implicit rule search has been done.
-#  Last modified 2022-05-08 02:11:08.43
+#  Last modified 2022-05-08 02:45:10.83
 #  File has been updated.
 #  Successfully updated.
 
 # files hash-table stats:
-# Load=13/1024=1%, Rehash=0, Collisions=0/38=0%
+# Load=13/1024=1%, Rehash=0, Collisions=0/39=0%
 # VPATH Search Paths
 
 # No 'vpath' search paths.
@@ -274,9 +300,9 @@ server.cpp:
 # strcache buffers: 1 (0) / strings = 34 / storage = 376 B / avg = 11 B
 # current buf: size = 8162 B / used = 376 B / count = 34 / avg = 11 B
 
-# strcache performance: lookups = 58 / hit rate = 41%
+# strcache performance: lookups = 57 / hit rate = 40%
 # hash-table stats:
-# Load=34/8192=0%, Rehash=0, Collisions=1/58=2%
-# Finished Make data base on Sun May  8 02:14:18 2022
+# Load=34/8192=0%, Rehash=0, Collisions=1/57=2%
+# Finished Make data base on Sun May  8 11:16:52 2022
 
  

@@ -74,8 +74,34 @@ necesari.
     De asemenea, pentru trimite id-ul unui client, se va trimite un mesaj de 
 tipul command cu numarul de octeti trimisi egala cu lungimea ID-ului + restul
 de octeti necesari. 
-    Aceste constante si structuri sunt folosite atat la trimitere cat si la 
-primire. Tema urmeaza o abordare cat mai eficienta posibila, atat din punctul
-de vedere al timpului cat si al memoriei folosite.
+    Pentru stocarea implicita a datelor, serverul foloseste 2 hashmap-uri.
+Unul este folosit pentru a creea o asociere socket -> date client. Acesta este
+foarte util pentru a afla usor datele unui client in functie de socket, de
+exemplu atunci cand un client se inchide, ii cunoastem socketul si avem nevoi de 
+ID-ul lui. Al doilea hashmap este folosit pentru a creea o asociere nume_topic
+-> pointer la datele clientilor abonati la acel topic. Acesta din urma este 
+foarte util atunci cand trebuie trimit un mesaj la fiecare client abonat la un
+topic, doarecere evitam o cautare liniara in lista de clienti, ceea ce reduce
+foarte mult timpul necesar trimiterii mesajelor, in special cand aplicatia ar fi 
+incarcata cu foarte multi clienti care sunt abonati la foarte multe topicuri, si 
+dorim o cautare mai buna decat una liniara. Dezavantajul la aceasta metoda este 
+memoria necesara, deoarece folosirea a doua hashmap-uri este mai costisitoare
+comparativ cu folosirea unui singur hashmap. Totusi, aceasta metoda poate ramane
+eficienta in cazul implementarii stocarii datelor in fisiere, pentru a nu 
+supra solicita memoria RAM. Am ales sa folosesc 2 hashmap-uri deoarece in enunt 
+s-a specificat ca putem considera ca server-ul va avea suficienta memoria RAM,
+iar acest lucru m-a dus cu gandul la serverele mari, care au in bazele lor de 
+date multiple hashmap-uri.
+    Toate constantele si structurile folosite atat la trimitere cat si la 
+primire, sunt explicate cu comentarii. Tema urmeaza o abordare cat mai eficienta
+posibila, atat din punctul de vedere al timpului cat si al memoriei folosite,
+dar se axeaza mai mult pe reducurea latentei.
+    Mentionez ca am tinut fiecare linie mai mica de 80 de caractere, si am
+incercat sa tin dimensiunea functiilor cat mai mica posibil. Acolo unde nu am 
+introdus o functie (de exemplu, fiecare continut al unui if din main putea sa
+fie o functie), este pentru ca numarul necesar de parametrii ar fi fost foarte
+mare, lucru ce cel putin din cunostintele mele de IOCLA, de multe ori nu este
+eficient, deoarece peste 8 argumente la o functie, se va folosi stiva pentru 
+parsarea lor, iar stiva este lenta.
 
     Va multumesc pentru atentie si feedback!

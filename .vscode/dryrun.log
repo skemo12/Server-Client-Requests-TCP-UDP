@@ -1,5 +1,6 @@
-make --dry-run --keep-going --print-directory
+make --dry-run --always-make --keep-going --print-directory
 make: Entering directory '/home/skemo/Facultate/Pcom/tema2/Tema2Pcom'
-make: Nothing to be done for 'all'.
+g++ -g server.cpp -o server
+g++ -g subscriber.cpp -o subscriber
 make: Leaving directory '/home/skemo/Facultate/Pcom/tema2/Tema2Pcom'
  

@@ -39,6 +39,7 @@ typedef struct server_message
 	udp_message message;	  // Continutul mesajului UDP
 } server_message;
 
+// Structura folosite pentru comenzile trimise la Subscriber la server
 typedef struct command
 {
 	uint32_t number_of_bytes; // Numarul de octeti ce trebuiesc primiti/trimisi
@@ -69,6 +70,7 @@ typedef struct command
 void recv_full_message(int sockfd, char *buffer, int curr_size)
 {
 	int ret = 0;
+	int counter = 0;
 	while (curr_size < 4)
 	{
 		ret = recv(sockfd, buffer + curr_size, 4 - curr_size, 0);
@@ -77,12 +79,13 @@ void recv_full_message(int sockfd, char *buffer, int curr_size)
 	}
 
 	server_message *message = (server_message *)buffer;
-	while (curr_size != message->number_of_bytes)
+	while (curr_size != message->number_of_bytes && counter < BUFLEN)
 	{
 		ret = recv(sockfd, buffer + curr_size,
 				   message->number_of_bytes - curr_size, 0);
 		DIE(ret < 0, "recv");
 		curr_size += ret;
+		counter++;
 	}
 }
 

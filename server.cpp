@@ -46,10 +46,12 @@ public:
 	}
 
 	// Executa o command de subscriber, de tipul subscribe/unsubscribe
-	void execute_command(char *command)
+	void execute_command(char *buffer,
+						 map<string, vector<Subscriber *>> *topics_subs)
 	{
+		command *command_parser = (command *)buffer;
 		// Parsarea propozitie
-		istringstream command_spliter(command);
+		istringstream command_spliter(command_parser->message);
 		// Un cuvant de proprozitie
 		string word;
 		if (command_spliter >> word)
@@ -68,6 +70,7 @@ public:
 
 					topic.topic_name = topic_name;
 					topics.push_back(topic);
+					(*topics_subs)[topic_name].push_back(this);
 				}
 				else
 				{
@@ -82,6 +85,10 @@ public:
 					remove_if(topics.begin(), topics.end(),
 							  [&word](Topic topic)
 							  { return topic.topic_name == word; });
+					(*topics_subs)[word].erase(remove(
+						(*topics_subs)[word].begin(),
+						(*topics_subs)[word].end(),
+						this));
 				}
 				else
 				{
@@ -103,8 +110,10 @@ public:
 };
 
 // Verifica daca un id este unic si inchide conexiunea in caz contrar
-bool id_unique(map<int, Subscriber> *clients, int new_sock, char *id)
+bool id_unique(map<int, Subscriber> *clients, int new_sock, char *buffer)
 {
+	command *command_parser = (command *)buffer;
+	char *id = command_parser->message;
 	auto found = find_if(clients->begin(), clients->end(),
 						 [id](pair<const int, Subscriber> client)
 						 { return client.second.id.compare(id) == 0; });
@@ -121,10 +130,11 @@ bool id_unique(map<int, Subscriber> *clients, int new_sock, char *id)
 }
 
 // Salveaza un client in baza de date
-void save_client(map<int, Subscriber> *clients, int new_sock, char *id,
+void save_client(map<int, Subscriber> *clients, int new_sock, char *buffer,
 				 int *fdmax, fd_set *sel_sock)
 {
-
+	command *command_parser = (command *)buffer;
+	char *id = command_parser->message;
 	Subscriber new_client;
 	new_client.connected = true;
 	new_client.id.append(id);
@@ -152,6 +162,7 @@ void save_client(map<int, Subscriber> *clients, int new_sock, char *id,
 // Interpreteaza un mesaj UDP si trimite/salveaza mesajul la subscriberii la
 // acel topic
 void parse_udp_message(char *buffer, map<int, Subscriber> *clients,
+					   map<string, vector<Subscriber *>> *topics_subs,
 					   struct sockaddr_in cli_addr)
 {
 	int ret;
@@ -163,30 +174,26 @@ void parse_udp_message(char *buffer, map<int, Subscriber> *clients,
 	toSend.addr.sin_family = AF_INET;
 	toSend.addr = cli_addr;
 	toSend.number_of_bytes = bytes_needed(message->type, message->content);
-	for (auto &client : *clients)
-	{
-		auto topic = find_if(client.second.topics.begin(),
-							 client.second.topics.end(),
-							 [&message](Topic el)
-							 {
-								 return el.topic_name
-											.compare(message->topic) == 0;
-							 });
 
-		if (topic != client.second.topics.end())
+	for (auto &client : (*topics_subs)[message->topic])
+	{
+		if (client->connected)
 		{
-			if (client.second.connected)
+			ret = send(client->socket, &toSend, toSend.number_of_bytes, 0);
+			DIE(ret < 0, "send");
+		}
+		else
+		{
+
+			if (find_if(client->topics.begin(),
+						client->topics.end(),
+						[&message](Topic topic)
+						{
+							return topic.topic_name.compare(message->topic) == 0
+									&& topic.sf;
+						}) != client->topics.end())
 			{
-				ret = send(client.second.socket, &toSend,
-						   toSend.number_of_bytes, 0);
-				DIE(ret < 0, "send");
-			}
-			else
-			{
-				if (topic->sf)
-				{
-					client.second.saved_packets.push_back(toSend);
-				}
+				client->saved_packets.push_back(toSend);
 			}
 		}
 	}
@@ -217,13 +224,15 @@ int main(int argc, char *argv[])
 	setvbuf(stdout, NULL, _IONBF, BUFSIZ);
 	int sock_TCP, sock_UDP, new_sock, portno, ret;
 	char buffer[BUFLEN];
-	command *command_parser;
 
 	struct sockaddr_in serv_addr, cli_addr;
 	socklen_t clilen = sizeof(cli_addr);
 	socklen_t sockaddr_len = sizeof(struct sockaddr);
 	// Hashmap-ul folosit pentru stocarea clientilor socket -> Client
 	map<int, Subscriber> clients;
+	// Hashmap-ul folosit pentru stocarea pointerilor clientilor abonati
+	// la un topic
+	map<string, vector<Subscriber *>> topic_subscribers;
 
 	// Initializare multimi de socketi, una fiind o copie
 	fd_set sel_sock, copy_fds;
@@ -296,8 +305,7 @@ int main(int argc, char *argv[])
 			{
 				break;
 			}
-			else
-				fprintf(stderr, "Invalid input command\n");
+			else fprintf(stderr, "Invalid input command\n");
 			FD_CLR(STDIN_FILENO, &copy_fds);
 		}
 		// Am primit o cerere de conexiune pe socket-ul TCP
@@ -316,16 +324,14 @@ int main(int argc, char *argv[])
 			memset(buffer, 0, sizeof(buffer));
 			ret = recv(new_sock, buffer, sizeof(uint32_t), 0);
 			DIE(ret < 0, "recv");
-			command_parser = (command *)buffer;
 			recv_full_message(new_sock, buffer, ret);
 
 			// Verificam daca id-ul este unic
-			if (id_unique(&clients, new_sock, command_parser->message))
+			if (id_unique(&clients, new_sock, buffer))
 			{
 				// Salvam noul client, afisam ca este conectat si trimitem
 				// eventualele packete salvate
-				save_client(&clients, new_sock, command_parser->message,
-							&fdmax, &sel_sock);
+				save_client(&clients, new_sock, buffer, &fdmax, &sel_sock);
 				clients[new_sock].print_connect(cli_addr);
 				clients[new_sock].send_saved_packets();
 			}
@@ -341,7 +347,7 @@ int main(int argc, char *argv[])
 			ret = recvfrom(sock_UDP, buffer, sizeof(buffer), 0,
 						   (struct sockaddr *)&cli_addr, &clilen);
 			DIE(ret < 0, "recvfrom");
-			parse_udp_message(buffer, &clients, cli_addr);
+			parse_udp_message(buffer, &clients, &topic_subscribers, cli_addr);
 			FD_CLR(sock_UDP, &copy_fds);
 		}
 		// Verificam daca am primit un mesaj de la un client
@@ -363,8 +369,7 @@ int main(int argc, char *argv[])
 				{
 					// Ne asiguram ca mesajul este complet si verificam comanda
 					recv_full_message(client.second.socket, buffer, ret);
-					command_parser = (command *)buffer;
-					client.second.execute_command(command_parser->message);
+					client.second.execute_command(buffer, &topic_subscribers);
 				}
 			}
 		}
